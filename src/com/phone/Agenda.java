@@ -4,10 +4,7 @@ import com.phone.Exceptions.InvalidEmail;
 import com.phone.Exceptions.InvalidName;
 import com.phone.Exceptions.InvalidNumber;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
@@ -16,21 +13,43 @@ import java.util.stream.Collectors;
 
 public class Agenda {
     private SortedMap<String, Contact> contacts = new TreeMap<>();
-    private Scanner kb = new Scanner(System.in);
 
-    public Agenda() throws IOException {
+    public Agenda() {
     }
 
-    public Agenda(Map<String, Contact> contacts) throws IOException {
+    public Agenda(Map<String, Contact> contacts) {
         this.contacts.putAll(contacts);
+    }
+
+    public Agenda(String filePath) {
+        try {
+            Map<String, Contact> contactMap = init(filePath); // initialize the contacts from file
+            this.contacts.putAll(contactMap); // add all contacts retrieved from the file to the contacts map
+        } catch (IOException ex) {
+            System.out.println("Failed to read contacts from file");
+        }
+    }
+
+    private Map<String, Contact> init(String filePath) throws IOException {
+        Map<String, Contact> contacts = new TreeMap<>();
+        BufferedReader in = new BufferedReader(new FileReader(filePath));
+        String header = in.readLine(); // the header
+        String str;
+        String[] line;
+        while ((str = in.readLine()) != null) {
+            line = str.split(",");
+            Contact c = new Contact(line[0], line[1], line[2], line[3]);
+            contacts.put(c.getFullName(), c);
+        }
+        in.close();
+
+        return contacts;
     }
 
     public void print() {
         AtomicInteger atomicInteger = new AtomicInteger();
         System.out.println("Contacte:");
-        contacts.keySet().stream().forEach(el -> {
-            System.out.println(atomicInteger.incrementAndGet() + ". " + el);
-        });
+        contacts.keySet().stream().forEach(el -> System.out.println(atomicInteger.incrementAndGet() + ". " + el));
     }
 
     public List<Contact> searchByName(String name) {
@@ -48,64 +67,21 @@ public class Agenda {
                 .collect(Collectors.toList());
     }
 
-    public boolean mainMenu() throws IOException {
-        boolean exit = false;
-        System.out.println("\nAlegeti o persoana dupa index sau cautati dupa literele introduse");
-        System.out.println("Comenzi suplimentare: -add, -delete, -edit, -exit");
-
-        String select = kb.nextLine();
-        boolean showContact = !(select.equals("add") || select.equals("delete") || select.equals("exit") || select.equals("edit"));
-
-        /*Afisare dupa index/cuvinte introduse*/
-
-        if (!Character.isDigit(select.charAt(0)) && showContact) {
-
-            showFilteredList(searchByName(select));
-        } else if (showContact) {
-            List<Contact> list = searchByIndex(Integer.parseInt(select));
-            contactInfo(Integer.parseInt(select));
-        }
-
-        /* Comenzi Suplimentare : */
-
-        if (select.equals("add")) {
-            this.addContact(true);
-        }
-        if (select.equals("edit")) {
-            this.addContact(false);
-        }
-
-        if (select.equals("delete")) {
-            this.delContact();
-        }
-
-        if (select.equals("exit")) {
-            exit = true;
-        }
-        return exit;
-    }
-
-    public void contactInfo(int index) {
+    public Optional<Contact> contactInfo(int index) {
         AtomicInteger atomicInteger = new AtomicInteger();
-        contacts.keySet().stream().forEach(el -> {
-            if (atomicInteger.incrementAndGet() == index) {
-                System.out.println(contacts.get(el));
-                System.out.println("Apasati enter pentru a va intoarce la meniul anterior");
-                kb.nextLine();
-            }
-        });
+        return contacts.values().stream().filter(el -> atomicInteger.incrementAndGet() == index).findFirst();
     }
 
-    public void showFilteredList(List list) {
+    public void printContacts(List<Contact> list) {
         list.stream().forEach(el -> {
             System.out.println(el);
         });
         System.out.println("Apasati enter pentru a va intoarce la meniul anterior");
-        kb.nextLine();
+//        kb.nextLine();
     }
 
 
-    public void addContact(boolean newContact) throws IOException {
+    public void addContact(boolean newContact, Scanner kb) {
         System.out.println("introduceti nume/prenume, telefon si email");
         boolean safe;
         String nume = kb.nextLine();
@@ -160,7 +136,7 @@ public class Agenda {
         return isValid;
     }
 
-    public void delContact() throws IOException {
+    public void delContact(Scanner kb) {
         String delKey = " ";
         System.out.println("index");
         int choice = kb.nextInt();
@@ -180,17 +156,68 @@ public class Agenda {
         kb.nextLine();
     }
 
+    public void backupData() {
+        File file = new File("backups");
+        if (!file.exists()) {
+            file.mkdir();
+        }
+
+        try {
+            BufferedWriter out = new BufferedWriter(new FileWriter("backups//backup_" + System.currentTimeMillis() + ".txt"));
+            out.write("firstName,lastName,phoneNr,email\n");
+            for (Map.Entry<String, Contact> entry : contacts.entrySet()) {
+                Contact c = entry.getValue();
+                out.write(c.getFirstName() + "," + c.getLastName() + "," + c.getPhoneNr() + "," + c.getEmail() + "\n");
+            }
+            out.close();
+        } catch (Exception e) {
+            System.out.println("backup failed");
+            System.out.println(String.valueOf(e));
+        }
+    }
+
+    public void returnPreviousVersion(Scanner kb) {
+        File file = new File("backups");
+        if (file.list().length != 0) {
+            int i = 1;
+            for (String el : file.list()) {
+                System.out.println(i + ". " + el);
+                i++;
+            }
+            System.out.print("choose version: ");
+            int choice = kb.nextInt();
+            for (i = 1; i <= file.list().length; i++) {
+                if (i == choice) {
+                    try {
+                        this.contacts = (SortedMap<String, Contact>) this.init("backups//" + file.list()[i - 1]);
+                        this.saveFile();
+                    } catch (IOException e) {
+                        System.out.println(e);
+                    }
+                }
+            }
+        } else {
+            System.out.println("no backups found");
+        }
+    }
+
     public SortedMap<String, Contact> getContacts() {
         return contacts;
     }
 
-    public void saveFile() throws IOException {
-        BufferedWriter bw = new BufferedWriter(new FileWriter(new File("").getAbsoluteFile() + "\\src\\com\\phone\\contacte.txt"));
-        bw.write("firstName,lastName,phoneNr,email\n");
-        for (Map.Entry<String, Contact> entry : contacts.entrySet()) {
-            Contact c = entry.getValue();
-            bw.write(c.getFirstName() + "," + c.getLastName() + "," + c.getPhoneNr() + "," + c.getEmail() + "\n");
+    public void saveFile() {
+        try {
+            BufferedWriter bw = new BufferedWriter(new FileWriter("contacts.txt"));
+            bw.write("firstName,lastName,phoneNr,email\n");
+            for (Map.Entry<String, Contact> entry : contacts.entrySet()) {
+                Contact c = entry.getValue();
+                bw.write(c.getFirstName() + "," + c.getLastName() + "," + c.getPhoneNr() + "," + c.getEmail() + "\n");
+            }
+            bw.close();
+        } catch (IOException ex) {
+            System.out.println("Failed to write contacts to file");
         }
-        bw.close();
     }
+
+
 }

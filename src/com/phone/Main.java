@@ -1,31 +1,77 @@
 package com.phone;
 
 import java.io.*;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+import java.util.Scanner;
 
 public class Main {
 
-    public static void main(String[] args) throws IOException {
+    private static Scanner kb = new Scanner(System.in);
 
-        Map<String, Contact> contacts = new TreeMap<>();
-        String filePath = new File("").getAbsolutePath();
-        BufferedReader in = new BufferedReader(new FileReader(filePath + "\\src\\com\\phone\\contacte.txt"));
-        String[] line = in.readLine().split(","); // the header
-        String str;
+    public static void main(String[] args) {
 
-        while ((str = in.readLine()) != null) {
-            line = str.split(",");
-            contacts.put(line[0] + " " + line[1], new Contact(line[0], line[1], line[2], line[3]));
-        }
-        in.close();
-        Agenda a = new Agenda(contacts);
+        Agenda a = new Agenda("contacts.txt");
         boolean exit = false;
 
         while (!exit) {
             a.print();
-            exit = a.mainMenu();
+            exit = mainMenu(a);
+        }
+    }
+
+
+    public static boolean mainMenu(Agenda agenda) {
+        boolean exit = false;
+        System.out.println("\nAlegeti o persoana dupa index sau cautati dupa literele introduse");
+        System.out.println("Comenzi suplimentare: -add, -delete, -edit, -backup, -revert(to prev. version), -exit");
+
+        String select = kb.nextLine();
+        boolean showContact = !(select.equals("add") || select.equals("delete") || select.equals("exit") ||
+                select.equals("edit") || select.equals("backup") || select.equals("revert"));
+
+        /*Afisare dupa index/cuvinte introduse*/
+
+        if (!Character.isDigit(select.charAt(0)) && showContact) {
+
+            agenda.printContacts(agenda.searchByName(select));
+            kb.nextLine();
+        } else if (showContact) {
+            List<Contact> list = agenda.searchByIndex(Integer.parseInt(select));
+            Optional<Contact> contactOptional = agenda.contactInfo(Integer.parseInt(select));
+            if (contactOptional.isPresent()) {
+                System.out.println(contactOptional.get());
+            }
+            System.out.println("Apasati enter pentru a va intoarce la meniul anterior");
+            kb.nextLine();
         }
 
+        /* Comenzi Suplimentare : */
+
+        if (select.equals("add")) {
+            agenda.addContact(true, kb);
+        }
+        if (select.equals("edit")) {
+            agenda.addContact(false, kb);
+        }
+
+        if (select.equals("delete")) {
+            agenda.delContact(kb);
+        }
+
+        if (select.equals("backup")) {
+            agenda.backupData();
+        }
+
+        if (select.equals("revert")){
+            agenda.returnPreviousVersion(kb);
+            kb.nextLine();
+        }
+
+        if (select.equals("exit")) {
+            exit = true;
+        }
+        return exit;
     }
 }

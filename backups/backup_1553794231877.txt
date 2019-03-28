@@ -1,0 +1,8 @@
+firstName,lastName,phoneNr,email
+Barabas,Daniel,0029731657,bd@mail.com
+Campeanu,John,098765,CJ@mail.com
+Georgescu,George,72542645,gg@mail.com
+Georgescu,Ghita,5678098,gheghe@mail.com
+Pop,John,0789675654,p_john@mail.com
+Vasilescu,Relu,12345,relu_pasarelu@mail.ro
+backup,NoDos,1312735,asd@asd.com
